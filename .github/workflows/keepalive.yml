@@ -1,0 +1,18 @@
+name: Manter Supabase Ativo (Keepalive)
+
+on:
+  schedule:
+    # Executa automaticamente todos os dias às 06:00 UTC (03:00 Horário de Brasília)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Permite rodar manualmente pelo painel se desejar
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fazer requisição real na API do Supabase
+        run: |
+          curl -s -X GET "https://azfllylzkdntprdbfxkl.supabase.co/rest/v1/procedimentos?select=id&limit=1" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZmxseWx6a2RudHByZGJmeGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MDU1ODcsImV4cCI6MjEwMTM4MTU4N30.VIn4ZLaRnX4PH8ncFeexvmmUDSSeON8fSbaYY7z0F7I" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZmxseWx6a2RudHByZGJmeGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MDU1ODcsImV4cCI6MjEwMTM4MTU4N30.VIn4ZLaRnX4PH8ncFeexvmmUDSSeON8fSbaYY7z0F7I"
+          echo "Requisição realizada com sucesso para impedir pausa do Supabase por inatividade!"
