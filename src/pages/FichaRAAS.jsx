@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { Search, Plus, Printer, List, FilePlus, CheckSquare } from 'lucide-react';
+import { Search, Plus, Printer, List, FilePlus, Trash2, Edit, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import FichaPrintView from '../components/FichaPrintView';
 
 export default function FichaRAAS() {
-  const { pacientes, procedimentos, profissionais, fichas, lancarAcaoIndividual } = useApp();
+  const { 
+    pacientes, 
+    procedimentos, 
+    profissionais, 
+    fichas, 
+    lancarAcaoIndividual,
+    deleteFicha,
+    deleteAcao,
+    updateAcao 
+  } = useApp();
   
   const [mesSelecionado, setMesSelecionado] = useState('2026-08');
   const [activeTab, setActiveTab] = useState('lista'); // 'lista' | 'edicao'
@@ -16,6 +25,9 @@ export default function FichaRAAS() {
   // Estado da edição individual
   const [pacienteSelecionado, setPacienteSelecionado] = useState(null);
   const [buscaPacienteInput, setBuscaPacienteInput] = useState('');
+
+  // Edição de Ação Específica
+  const [editingAcao, setEditingAcao] = useState(null);
 
   const [novaAcao, setNovaAcao] = useState({ 
     codigo: '', 
@@ -53,8 +65,15 @@ export default function FichaRAAS() {
     setActiveTab('edicao');
   };
 
+  const handleDeleteFicha = (fichaId, nomePaciente) => {
+    if (window.confirm(`Deseja excluir a ficha inteira do paciente "${nomePaciente}" no mês ${formatMesExibicao(mesSelecionado)}?`)) {
+      deleteFicha(fichaId);
+      setSelectedFichaIds(prev => prev.filter(id => id !== fichaId));
+    }
+  };
+
   // Obter as ações da ficha do paciente selecionado no mês atual
-  const fichaAtual = pacienteSelecionado ? fichas.find(f => f.paciente_id === pacienteSelecionado.id && f.mes_atendimento === mesSelecionado) : null;
+  const fichaAtual = pacienteSelecionado ? fichas.find(f => Number(f.paciente_id) === Number(pacienteSelecionado.id) && f.mes_atendimento === mesSelecionado) : null;
   const acoesAtuais = fichaAtual ? fichaAtual.acoes : [];
 
   const formatDateToBR = (dateStr) => {
@@ -88,6 +107,59 @@ export default function FichaRAAS() {
 
     lancarAcaoIndividual(pacienteSelecionado.id, mesSelecionado, acaoObj);
     setNovaAcao({ codigo: '', quantidade: '1', data: '', profissional_id: '', local: 'CAPS' });
+  };
+
+  const handleDeleteAcao = (acaoId) => {
+    if (!fichaAtual) return;
+    if (window.confirm("Deseja realmente remover esta ação da ficha?")) {
+      deleteAcao(fichaAtual.id, acaoId);
+    }
+  };
+
+  const handleOpenEditAcao = (acao) => {
+    // Encontrar profissional pelo CBO/CNS ou manter selecionado
+    const prof = profissionais.find(p => p.cns === acao.cns) || profissionais[0];
+    
+    // Converter DD/MM/AAAA para YYYY-MM-DD se necessário para o input date
+    let dataIso = acao.data;
+    if (acao.data && acao.data.includes('/')) {
+      const parts = acao.data.split('/');
+      if (parts.length === 3) {
+        dataIso = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+
+    setEditingAcao({
+      id: acao.id,
+      codigo: acao.codigo,
+      quantidade: acao.quantidade,
+      data: dataIso,
+      profissional_id: prof ? prof.id : '',
+      local: acao.local
+    });
+  };
+
+  const handleSaveEditAcao = (e) => {
+    e.preventDefault();
+    if (!fichaAtual || !editingAcao) return;
+
+    const prof = profissionais.find(p => p.id === Number(editingAcao.profissional_id));
+    if (!prof) {
+      alert("Selecione um profissional.");
+      return;
+    }
+
+    const acaoAtualizada = {
+      codigo: editingAcao.codigo,
+      quantidade: editingAcao.quantidade,
+      data: formatDateToBR(editingAcao.data),
+      cbo: prof.cbo,
+      cns: prof.cns,
+      local: editingAcao.local
+    };
+
+    updateAcao(fichaAtual.id, editingAcao.id, acaoAtualizada);
+    setEditingAcao(null);
   };
 
   // Lógica de Seleção em Massa para Impressão
@@ -224,12 +296,12 @@ export default function FichaRAAS() {
                   <th>Cartão SUS</th>
                   <th>Data Admissão</th>
                   <th>Ações no Mês</th>
-                  <th>Ações</th>
+                  <th style={{ textAlign: 'center' }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {fichasDoMes.map((ficha) => {
-                  const paciente = pacientes.find(p => p.id === ficha.paciente_id);
+                  const paciente = pacientes.find(p => Number(p.id) === Number(ficha.paciente_id));
                   const isChecked = selectedFichaIds.includes(ficha.id);
                   if (!paciente) return null;
 
@@ -256,13 +328,22 @@ export default function FichaRAAS() {
                         </span>
                       </td>
                       <td>
-                        <button 
-                          className="btn btn-outline" 
-                          onClick={() => handleSelecionarPacienteDaLista(paciente)}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        >
-                          Adicionar Procedimentos
-                        </button>
+                        <div className="flex justify-between items-center gap-2" style={{ justifyContent: 'center' }}>
+                          <button 
+                            className="btn btn-outline" 
+                            onClick={() => handleSelecionarPacienteDaLista(paciente)}
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                          >
+                            <Edit size={14} /> Editar Ações
+                          </button>
+                          <button 
+                            className="btn btn-danger" 
+                            onClick={() => handleDeleteFicha(ficha.id, paciente.nome)}
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                          >
+                            <Trash2 size={14} /> Excluir Ficha
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -403,22 +484,41 @@ export default function FichaRAAS() {
                         <th>CBO</th>
                         <th>CNS</th>
                         <th>Local</th>
+                        <th style={{ textAlign: 'center' }}>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {acoesAtuais.map((acao) => (
                         <tr key={acao.id}>
-                          <td>{acao.codigo}</td>
+                          <td style={{ fontWeight: 600 }}>{acao.codigo}</td>
                           <td>{acao.data}</td>
                           <td>{acao.quantidade}</td>
                           <td>{acao.cbo}</td>
                           <td>{acao.cns}</td>
                           <td>{acao.local}</td>
+                          <td>
+                            <div className="flex justify-between items-center gap-2" style={{ justifyContent: 'center' }}>
+                              <button 
+                                className="btn btn-outline" 
+                                onClick={() => handleOpenEditAcao(acao)}
+                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                              >
+                                <Edit size={12} /> Editar
+                              </button>
+                              <button 
+                                className="btn btn-danger" 
+                                onClick={() => handleDeleteAcao(acao.id)}
+                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                              >
+                                <Trash2 size={12} /> Excluir
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                       {acoesAtuais.length === 0 && (
                         <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                          <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                             Nenhuma ação lançada nesta ficha para o mês de {formatMesExibicao(mesSelecionado)}.
                           </td>
                         </tr>
@@ -430,6 +530,70 @@ export default function FichaRAAS() {
             </>
           )}
         </>
+      )}
+
+      {/* Modal de Edição de Ação Realizada */}
+      {editingAcao && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100,
+          display: 'flex', justifyContent: 'center', alignItems: 'center'
+        }}>
+          <div className="card" style={{ width: '550px', position: 'relative' }}>
+            <button onClick={() => setEditingAcao(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <X size={24} color="var(--text-muted)" />
+            </button>
+            <h2 style={{ marginBottom: '1.5rem', fontWeight: 600, fontSize: '1.25rem' }}>Editar Ação Realizada</h2>
+            
+            <form onSubmit={handleSaveEditAcao}>
+              <div className="form-group">
+                <label className="form-label">Procedimento (Código)</label>
+                <select className="form-control" value={editingAcao.codigo} onChange={e => setEditingAcao({...editingAcao, codigo: e.target.value})} required>
+                  {procedimentos.map(proc => (
+                    <option key={proc.id} value={proc.codigo}>
+                      {proc.codigo} - {proc.observacao}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label className="form-label">Data de Realização</label>
+                  <input type="date" className="form-control" value={editingAcao.data} onChange={e => setEditingAcao({...editingAcao, data: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Quantidade</label>
+                  <input type="number" className="form-control" min="1" value={editingAcao.quantidade} onChange={e => setEditingAcao({...editingAcao, quantidade: e.target.value})} required />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Profissional Executante</label>
+                <select className="form-control" value={editingAcao.profissional_id} onChange={e => setEditingAcao({...editingAcao, profissional_id: e.target.value})} required>
+                  {profissionais.map(prof => (
+                    <option key={prof.id} value={prof.id}>
+                      {prof.nome} (CBO: {prof.cbo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Local de Atendimento</label>
+                <select className="form-control" value={editingAcao.local} onChange={e => setEditingAcao({...editingAcao, local: e.target.value})} required>
+                  <option value="CAPS">CAPS</option>
+                  <option value="Território">Território</option>
+                </select>
+              </div>
+
+              <div className="flex justify-between" style={{ marginTop: '2rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setEditingAcao(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Salvar Alterações</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

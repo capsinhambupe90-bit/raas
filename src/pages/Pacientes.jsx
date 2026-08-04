@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, Trash2, Edit } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Pacientes() {
-  const { pacientes, addPaciente, updatePaciente } = useApp();
+  const { pacientes, addPaciente, updatePaciente, deletePaciente } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,6 +59,12 @@ export default function Pacientes() {
     handleCloseModal();
   };
 
+  const handleDelete = (id, nome) => {
+    if (window.confirm(`Tem certeza que deseja excluir o paciente "${nome}"? Todas as fichas atreladas a ele também serão removidas.`)) {
+      deletePaciente(id);
+    }
+  };
+
   const pacientesFiltrados = pacientes.filter(p => 
     p.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.cartao_sus.includes(searchTerm)
@@ -98,7 +104,7 @@ export default function Pacientes() {
                 <th>Cartão do SUS</th>
                 <th>CPF</th>
                 <th>Data Nasc.</th>
-                <th>Ações</th>
+                <th style={{ textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -109,7 +115,24 @@ export default function Pacientes() {
                   <td>{paciente.cpf}</td>
                   <td>{paciente.data_nascimento}</td>
                   <td>
-                    <button className="btn btn-outline" onClick={() => handleOpenModal(paciente)} style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>Visualizar / Editar</button>
+                    <div className="flex justify-between items-center gap-2" style={{ justifyContent: 'center' }}>
+                      <button 
+                        className="btn btn-outline" 
+                        onClick={() => handleOpenModal(paciente)} 
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                        title="Editar"
+                      >
+                        <Edit size={14} /> Editar
+                      </button>
+                      <button 
+                        className="btn btn-danger" 
+                        onClick={() => handleDelete(paciente.id, paciente.nome)} 
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                        title="Excluir"
+                      >
+                        <Trash2 size={14} /> Excluir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -1,23 +1,40 @@
 import React, { useState } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Profissionais() {
-  const { profissionais, addProfissional } = useApp();
+  const { profissionais, addProfissional, updateProfissional, deleteProfissional } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ nome: '', cns: '', cbo: '' });
 
-  const handleOpenModal = () => {
-    setFormData({ nome: '', cns: '', cbo: '' });
+  const handleOpenModal = (prof = null) => {
+    if (prof) {
+      setFormData(prof);
+      setEditingId(prof.id);
+    } else {
+      setFormData({ nome: '', cns: '', cbo: '' });
+      setEditingId(null);
+    }
     setIsModalOpen(true);
   };
 
   const handleSave = (e) => {
     e.preventDefault();
-    addProfissional(formData);
+    if (editingId) {
+      updateProfissional(editingId, formData);
+    } else {
+      addProfissional(formData);
+    }
     setIsModalOpen(false);
+  };
+
+  const handleDelete = (id, nome) => {
+    if (window.confirm(`Deseja realmente excluir o profissional "${nome}"?`)) {
+      deleteProfissional(id);
+    }
   };
 
   const profissionaisFiltrados = profissionais.filter(p => 
@@ -33,7 +50,7 @@ export default function Profissionais() {
           <h1 className="page-title">Profissionais</h1>
           <p style={{ color: 'var(--text-muted)' }}>Gerencie os executantes das ações.</p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenModal}>
+        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={18} /> Novo Profissional
         </button>
       </div>
@@ -59,6 +76,7 @@ export default function Profissionais() {
                 <th>Nome</th>
                 <th>CNS</th>
                 <th>CBO</th>
+                <th style={{ textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -67,11 +85,29 @@ export default function Profissionais() {
                   <td style={{ fontWeight: 500 }}>{prof.nome}</td>
                   <td>{prof.cns}</td>
                   <td>{prof.cbo}</td>
+                  <td>
+                    <div className="flex justify-between items-center gap-2" style={{ justifyContent: 'center' }}>
+                      <button 
+                        className="btn btn-outline" 
+                        onClick={() => handleOpenModal(prof)} 
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                      >
+                        <Edit size={14} /> Editar
+                      </button>
+                      <button 
+                        className="btn btn-danger" 
+                        onClick={() => handleDelete(prof.id, prof.nome)} 
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                      >
+                        <Trash2 size={14} /> Excluir
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {profissionaisFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum profissional encontrado.</td>
+                  <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum profissional encontrado.</td>
                 </tr>
               )}
             </tbody>
@@ -89,7 +125,9 @@ export default function Profissionais() {
             <button onClick={() => setIsModalOpen(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer' }}>
               <X size={24} color="var(--text-muted)" />
             </button>
-            <h2 style={{ marginBottom: '1.5rem', fontWeight: 600, fontSize: '1.25rem' }}>Novo Profissional</h2>
+            <h2 style={{ marginBottom: '1.5rem', fontWeight: 600, fontSize: '1.25rem' }}>
+              {editingId ? 'Editar Profissional' : 'Novo Profissional'}
+            </h2>
             
             <form onSubmit={handleSave}>
               <div className="form-group">

@@ -59,7 +59,7 @@ export function AppProvider({ children }) {
     { id: 3, codigo: '0301010048', observacao: 'Atendimento em grupo em atenção especializada' }
   ]);
 
-  // Fichas de exemplo pré-carregadas para TODOS os 3 pacientes no mês 2026-08
+  // Fichas mensais
   const [fichas, setFichas] = useState([
     {
       id: 101,
@@ -87,22 +87,48 @@ export function AppProvider({ children }) {
     }
   ]);
 
+  // --- PACIENTES ---
   const addPaciente = (paciente) => {
     setPacientes(prev => [...prev, { ...paciente, id: Date.now() }]);
   };
 
   const updatePaciente = (id, paciente) => {
-    setPacientes(prev => prev.map(p => p.id === Number(id) ? { ...paciente, id: Number(id) } : p));
+    setPacientes(prev => prev.map(p => Number(p.id) === Number(id) ? { ...paciente, id: Number(id) } : p));
   };
 
+  const deletePaciente = (id) => {
+    const pId = Number(id);
+    setPacientes(prev => prev.filter(p => Number(p.id) !== pId));
+    setFichas(prev => prev.filter(f => Number(f.paciente_id) !== pId));
+  };
+
+  // --- PROFISSIONAIS ---
   const addProfissional = (prof) => {
     setProfissionais(prev => [...prev, { ...prof, id: Date.now() }]);
   };
 
+  const updateProfissional = (id, prof) => {
+    setProfissionais(prev => prev.map(p => Number(p.id) === Number(id) ? { ...prof, id: Number(id) } : p));
+  };
+
+  const deleteProfissional = (id) => {
+    setProfissionais(prev => prev.filter(p => Number(p.id) !== Number(id)));
+  };
+
+  // --- PROCEDIMENTOS ---
   const addProcedimento = (proc) => {
     setProcedimentos(prev => [...prev, { ...proc, id: Date.now() }]);
   };
 
+  const updateProcedimento = (id, proc) => {
+    setProcedimentos(prev => prev.map(p => Number(p.id) === Number(id) ? { ...proc, id: Number(id) } : p));
+  };
+
+  const deleteProcedimento = (id) => {
+    setProcedimentos(prev => prev.filter(p => Number(p.id) !== Number(id)));
+  };
+
+  // --- FICHAS E AÇÕES ---
   const lancarAcaoIndividual = (pacienteId, mes, acao) => {
     const pId = Number(pacienteId);
     setFichas(prevFichas => {
@@ -139,6 +165,34 @@ export function AppProvider({ children }) {
     });
   };
 
+  const deleteFicha = (fichaId) => {
+    setFichas(prev => prev.filter(f => Number(f.id) !== Number(fichaId)));
+  };
+
+  const deleteAcao = (fichaId, acaoId) => {
+    setFichas(prev => prev.map(f => {
+      if (Number(f.id) === Number(fichaId)) {
+        return {
+          ...f,
+          acoes: f.acoes.filter(a => Number(a.id) !== Number(acaoId))
+        };
+      }
+      return f;
+    }));
+  };
+
+  const updateAcao = (fichaId, acaoId, novaAcaoData) => {
+    setFichas(prev => prev.map(f => {
+      if (Number(f.id) === Number(fichaId)) {
+        return {
+          ...f,
+          acoes: f.acoes.map(a => Number(a.id) === Number(acaoId) ? { ...novaAcaoData, id: Number(acaoId) } : a)
+        };
+      }
+      return f;
+    }));
+  };
+
   return (
     <AppContext.Provider value={{
       pacientes,
@@ -147,10 +201,18 @@ export function AppProvider({ children }) {
       fichas,
       addPaciente,
       updatePaciente,
+      deletePaciente,
       addProfissional,
+      updateProfissional,
+      deleteProfissional,
       addProcedimento,
+      updateProcedimento,
+      deleteProcedimento,
       lancarAcaoIndividual,
-      lancarAcaoMassa
+      lancarAcaoMassa,
+      deleteFicha,
+      deleteAcao,
+      updateAcao
     }}>
       {children}
     </AppContext.Provider>
