@@ -1,0 +1,231 @@
+.print-container {
+  font-family: Arial, sans-serif;
+  color: #000;
+  background-color: #e5e7eb;
+  padding: 20px;
+}
+
+.font-bold {
+  font-weight: bold;
+}
+
+.a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  background: white;
+  margin: 0 auto 20px auto;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border: 1px solid #ccc;
+  position: relative;
+  padding: 6mm 8mm;
+  box-sizing: border-box;
+}
+
+.raas-header {
+  border: 2px solid #000;
+  border-bottom: none;
+}
+
+.raas-title {
+  text-align: center;
+  font-size: 14px; /* Aumentado */
+  font-weight: bold;
+  padding: 3px;
+  border-bottom: 1px solid #000;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.raas-subtitle {
+  text-align: center;
+  font-size: 12px; /* Aumentado */
+  font-weight: bold;
+  padding: 3px;
+  border-bottom: 2px solid #000;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.raas-section-title {
+  background-color: #9ca3af;
+  color: white;
+  text-align: center;
+  font-size: 11px; /* Aumentado */
+  font-weight: bold;
+  padding: 2px;
+  border-bottom: 1px solid #000;
+  text-transform: uppercase;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.raas-row {
+  border-bottom: 1px solid #000;
+  display: flex;
+}
+
+.raas-cell {
+  padding: 2px 5px;
+  font-size: 11px; /* Aumentado de 10px */
+}
+
+.raas-label {
+  font-size: 10px; /* Aumentado de 9px */
+  color: #1f2937;
+  width: 115px;
+  font-weight: 600;
+}
+
+/* Nova Tabela de Ações Ampliada */
+.raas-actions-table {
+  border: 2px solid #000;
+  border-top: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.raas-actions-header {
+  display: flex;
+  background-color: #e5e7eb;
+  border-bottom: 2px solid #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.raas-actions-header div {
+  font-size: 10px; /* Aumentado de 9px */
+  font-weight: bold;
+  text-align: center;
+  padding: 3px 2px;
+  color: #000;
+  border-right: 1px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.raas-actions-row {
+  display: flex;
+  border-bottom: 1px solid #000;
+}
+
+.raas-actions-row:last-child {
+  border-bottom: none;
+}
+
+.raas-actions-row div {
+  font-size: 11px; /* Aumentado de 10px */
+  padding: 2px 2px;
+  text-align: center;
+  border-right: 1px solid #000;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.raas-actions-header div:last-child,
+.raas-actions-row div:last-child {
+  border-right: none;
+}
+
+/* Larguras ajustadas para melhor visualização */
+.action-col-codigo { width: 20%; }
+.action-col-qtd { width: 8%; }
+.action-col-data { width: 14%; }
+.action-col-cbo { width: 14%; }
+.action-col-cns { width: 24%; }
+.action-col-local { width: 20%; font-size: 10px !important; }
+
+.page-footer {
+  position: absolute;
+  bottom: 4mm;
+  right: 8mm;
+  font-size: 10px;
+  color: #333;
+}
+
+/* Bloco de Resumo de Totais por Procedimento - Compacto, 2 colunas */
+.resumo-totais {
+  margin-top: 6px;
+  border: 1.5px solid #000;
+  page-break-inside: avoid;
+}
+
+.resumo-titulo {
+  background-color: #9ca3af;
+  color: white;
+  text-align: center;
+  font-size: 8.5px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-bottom: 1.5px solid #000;
+  text-transform: uppercase;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Grid de 2 colunas auto para os itens do resumo */
+.resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: 0;
+  row-gap: 0;
+}
+
+.resumo-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1.5px 6px;
+  font-size: 9px;
+  border-bottom: 1px solid #6b7280;
+  border-right: 1px solid #6b7280;
+}
+
+/* Itens da segunda coluna nao tem borda direita */
+.resumo-item:nth-child(2n) {
+  border-right: none;
+}
+
+.resumo-codigo {
+  font-weight: bold;
+  color: #1f2937;
+  flex: 1;
+}
+
+.resumo-separador {
+  color: #6b7280;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.resumo-total {
+  font-weight: bold;
+  color: #0369a1;
+  min-width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  
+  .print-container {
+    padding: 0;
+    background-color: white;
+  }
+  
+  .a4-page {
+    margin: 0;
+    box-shadow: none;
+    border: none;
+    page-break-after: always;
+  }
+  
+  .a4-page:last-child {
+    page-break-after: auto;
+  }
+}

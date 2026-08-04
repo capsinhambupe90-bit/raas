@@ -1,0 +1,19 @@
+# Dependências
+node_modules/
+dist/
+
+# Variáveis de ambiente (NÃO subir para o GitHub)
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
