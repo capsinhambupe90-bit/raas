@@ -1,196 +1,392 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-  const [pacientes, setPacientes] = useState([
-    { 
-      id: 1, 
-      nome: 'BALBINO GONÇALVES DE CRISTO', 
-      cartao_sus: '704.5023.2231.4911',
-      cpf: '000.000.000-00',
-      sexo: 'M',
-      data_nascimento: '30/03/1960',
-      nome_mae: 'MARIA SINDRONIA GONÇALVES DE CRISTO',
-      endereco: 'VOLTA DE CIMA',
-      telefone: '(88) 99999-0000',
-      data_admissao: '21/03/2017',
-      cid_principal: 'F20.0',
-      cid_associado: ''
-    },
-    { 
-      id: 2, 
-      nome: 'MARIA DA SILVA OLIVEIRA', 
-      cartao_sus: '704.1234.5678.9012',
-      cpf: '111.111.111-11',
-      sexo: 'F',
-      data_nascimento: '15/05/1975',
-      nome_mae: 'ANA DA SILVA',
-      endereco: 'CENTRO',
-      telefone: '(88) 98888-1111',
-      data_admissao: '10/01/2020',
-      cid_principal: 'F32.1',
-      cid_associado: ''
-    },
-    { 
-      id: 3, 
-      nome: 'JOÃO DE SOUZA', 
-      cartao_sus: '704.9876.5432.1098',
-      cpf: '222.222.222-22',
-      sexo: 'M',
-      data_nascimento: '12/10/1982',
-      nome_mae: 'FRANCISCA DE SOUZA',
-      endereco: 'BAIRRO NOVO',
-      telefone: '(88) 97777-2222',
-      data_admissao: '05/06/2021',
-      cid_principal: 'F10.2',
-      cid_associado: ''
+  const [pacientes, setPacientes] = useState([]);
+  const [profissionais, setProfissionais] = useState([]);
+  const [procedimentos, setProcedimentos] = useState([]);
+  const [fichas, setFichas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Carrega todos os dados do Supabase
+  const carregarDados = async () => {
+    try {
+      setLoading(true);
+
+      const [pacsRes, profsRes, procsRes, fichasRes, acoesRes] = await Promise.all([
+        supabase.from('pacientes').select('*').order('nome'),
+        supabase.from('profissionais').select('*').order('nome'),
+        supabase.from('procedimentos').select('*').order('codigo'),
+        supabase.from('fichas_mensais').select('*'),
+        supabase.from('acoes_realizadas').select('*')
+      ]);
+
+      if (pacsRes.error) console.error('Erro ao buscar pacientes:', pacsRes.error);
+      if (profsRes.error) console.error('Erro ao buscar profissionais:', profsRes.error);
+      if (procsRes.error) console.error('Erro ao buscar procedimentos:', procsRes.error);
+      if (fichasRes.error) console.error('Erro ao buscar fichas:', fichasRes.error);
+      if (acoesRes.error) console.error('Erro ao buscar ações:', acoesRes.error);
+
+      setPacientes(pacsRes.data || []);
+      setProfissionais(profsRes.data || []);
+      setProcedimentos(procsRes.data || []);
+
+      // Agrupa as ações realizadas por ficha_id
+      const acoesPorFicha = (acoesRes.data || []).reduce((acc, acao) => {
+        const fId = Number(acao.ficha_id);
+        if (!acc[fId]) acc[fId] = [];
+        acc[fId].push({
+          id: acao.id,
+          codigo: acao.codigo || acao.procedimento_codigo,
+          quantidade: acao.quantidade,
+          data: acao.data || acao.data_realizacao,
+          cbo: acao.cbo,
+          cns: acao.cns,
+          local: acao.local || acao.local_acao || 'CAPS',
+          profissional_id: acao.profissional_id
+        });
+        return acc;
+      }, {});
+
+      const listaFichas = (fichasRes.data || []).map(f => ({
+        id: f.id,
+        paciente_id: Number(f.paciente_id),
+        mes_atendimento: f.mes_atendimento,
+        acoes: acoesPorFicha[Number(f.id)] || []
+      }));
+
+      setFichas(listaFichas);
+    } catch (err) {
+      console.error('Erro inesperado ao sincronizar com o Supabase:', err);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
-  const [profissionais, setProfissionais] = useState([
-    { id: 1, nome: 'Dr. João Silva', cns: '123456789012345', cbo: '225125' },
-    { id: 2, nome: 'Dra. Ana Costa (Psicóloga)', cns: '987654321054321', cbo: '251510' }
-  ]);
-
-  const [procedimentos, setProcedimentos] = useState([
-    { id: 1, codigo: '0301010072', observacao: 'Consulta médica em atenção especializada' },
-    { id: 2, codigo: '0301010137', observacao: 'Atendimento individual em atenção especializada' },
-    { id: 3, codigo: '0301010048', observacao: 'Atendimento em grupo em atenção especializada' }
-  ]);
-
-  // Fichas mensais
-  const [fichas, setFichas] = useState([
-    {
-      id: 101,
-      paciente_id: 1,
-      mes_atendimento: '2026-08',
-      acoes: [
-        { id: 1, codigo: '0301010072', quantidade: '1', data: '03/08/2026', cbo: '225125', cns: '123456789012345', local: 'CAPS' }
-      ]
-    },
-    {
-      id: 102,
-      paciente_id: 2,
-      mes_atendimento: '2026-08',
-      acoes: [
-        { id: 2, codigo: '0301010137', quantidade: '1', data: '04/08/2026', cbo: '251510', cns: '987654321054321', local: 'CAPS' }
-      ]
-    },
-    {
-      id: 103,
-      paciente_id: 3,
-      mes_atendimento: '2026-08',
-      acoes: [
-        { id: 3, codigo: '0301010048', quantidade: '1', data: '05/08/2026', cbo: '225125', cns: '123456789012345', local: 'Território' }
-      ]
-    }
-  ]);
+  useEffect(() => {
+    carregarDados();
+  }, []);
 
   // --- PACIENTES ---
-  const addPaciente = (paciente) => {
-    setPacientes(prev => [...prev, { ...paciente, id: Date.now() }]);
+  const addPaciente = async (pacienteData) => {
+    try {
+      const { id, ...dadosLimpos } = pacienteData;
+      const { data, error } = await supabase.from('pacientes').insert([dadosLimpos]).select();
+      if (error) {
+        alert('Erro ao salvar paciente no Supabase: ' + error.message);
+        return null;
+      }
+      if (data && data[0]) {
+        setPacientes(prev => [...prev, data[0]]);
+        return data[0];
+      }
+    } catch (err) {
+      console.error('Erro ao adicionar paciente:', err);
+    }
   };
 
-  const updatePaciente = (id, paciente) => {
-    setPacientes(prev => prev.map(p => Number(p.id) === Number(id) ? { ...paciente, id: Number(id) } : p));
+  const updatePaciente = async (id, pacienteData) => {
+    try {
+      const { id: _id, created_at: _created, ...dadosLimpos } = pacienteData;
+      const { data, error } = await supabase
+        .from('pacientes')
+        .update(dadosLimpos)
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        alert('Erro ao atualizar paciente no Supabase: ' + error.message);
+        return;
+      }
+      if (data && data[0]) {
+        setPacientes(prev => prev.map(p => Number(p.id) === Number(id) ? data[0] : p));
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar paciente:', err);
+    }
   };
 
-  const deletePaciente = (id) => {
-    const pId = Number(id);
-    setPacientes(prev => prev.filter(p => Number(p.id) !== pId));
-    setFichas(prev => prev.filter(f => Number(f.paciente_id) !== pId));
+  const deletePaciente = async (id) => {
+    try {
+      const pId = Number(id);
+      const { error } = await supabase.from('pacientes').delete().eq('id', pId);
+      if (error) {
+        alert('Erro ao excluir paciente no Supabase: ' + error.message);
+        return;
+      }
+      setPacientes(prev => prev.filter(p => Number(p.id) !== pId));
+      setFichas(prev => prev.filter(f => Number(f.paciente_id) !== pId));
+    } catch (err) {
+      console.error('Erro ao excluir paciente:', err);
+    }
   };
 
   // --- PROFISSIONAIS ---
-  const addProfissional = (prof) => {
-    setProfissionais(prev => [...prev, { ...prof, id: Date.now() }]);
+  const addProfissional = async (profData) => {
+    try {
+      const { id, ...dadosLimpos } = profData;
+      const { data, error } = await supabase.from('profissionais').insert([dadosLimpos]).select();
+      if (error) {
+        alert('Erro ao cadastrar profissional no Supabase: ' + error.message);
+        return null;
+      }
+      if (data && data[0]) {
+        setProfissionais(prev => [...prev, data[0]]);
+        return data[0];
+      }
+    } catch (err) {
+      console.error('Erro ao cadastrar profissional:', err);
+    }
   };
 
-  const updateProfissional = (id, prof) => {
-    setProfissionais(prev => prev.map(p => Number(p.id) === Number(id) ? { ...prof, id: Number(id) } : p));
+  const updateProfissional = async (id, profData) => {
+    try {
+      const { id: _id, created_at: _created, ...dadosLimpos } = profData;
+      const { data, error } = await supabase
+        .from('profissionais')
+        .update(dadosLimpos)
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        alert('Erro ao atualizar profissional no Supabase: ' + error.message);
+        return;
+      }
+      if (data && data[0]) {
+        setProfissionais(prev => prev.map(p => Number(p.id) === Number(id) ? data[0] : p));
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar profissional:', err);
+    }
   };
 
-  const deleteProfissional = (id) => {
-    setProfissionais(prev => prev.filter(p => Number(p.id) !== Number(id)));
+  const deleteProfissional = async (id) => {
+    try {
+      const { error } = await supabase.from('profissionais').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir profissional no Supabase: ' + error.message);
+        return;
+      }
+      setProfissionais(prev => prev.filter(p => Number(p.id) !== Number(id)));
+    } catch (err) {
+      console.error('Erro ao excluir profissional:', err);
+    }
   };
 
   // --- PROCEDIMENTOS ---
-  const addProcedimento = (proc) => {
-    setProcedimentos(prev => [...prev, { ...proc, id: Date.now() }]);
+  const addProcedimento = async (procData) => {
+    try {
+      const { id, ...dadosLimpos } = procData;
+      const { data, error } = await supabase.from('procedimentos').insert([dadosLimpos]).select();
+      if (error) {
+        alert('Erro ao cadastrar procedimento no Supabase: ' + error.message);
+        return null;
+      }
+      if (data && data[0]) {
+        setProcedimentos(prev => [...prev, data[0]]);
+        return data[0];
+      }
+    } catch (err) {
+      console.error('Erro ao cadastrar procedimento:', err);
+    }
   };
 
-  const updateProcedimento = (id, proc) => {
-    setProcedimentos(prev => prev.map(p => Number(p.id) === Number(id) ? { ...proc, id: Number(id) } : p));
+  const updateProcedimento = async (id, procData) => {
+    try {
+      const { id: _id, created_at: _created, ...dadosLimpos } = procData;
+      const { data, error } = await supabase
+        .from('procedimentos')
+        .update(dadosLimpos)
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        alert('Erro ao atualizar procedimento no Supabase: ' + error.message);
+        return;
+      }
+      if (data && data[0]) {
+        setProcedimentos(prev => prev.map(p => Number(p.id) === Number(id) ? data[0] : p));
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar procedimento:', err);
+    }
   };
 
-  const deleteProcedimento = (id) => {
-    setProcedimentos(prev => prev.filter(p => Number(p.id) !== Number(id)));
+  const deleteProcedimento = async (id) => {
+    try {
+      const { error } = await supabase.from('procedimentos').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir procedimento no Supabase: ' + error.message);
+        return;
+      }
+      setProcedimentos(prev => prev.filter(p => Number(p.id) !== Number(id)));
+    } catch (err) {
+      console.error('Erro ao excluir procedimento:', err);
+    }
   };
 
   // --- FICHAS E AÇÕES ---
-  const lancarAcaoIndividual = (pacienteId, mes, acao) => {
-    const pId = Number(pacienteId);
-    setFichas(prevFichas => {
-      const fichaExistente = prevFichas.find(f => Number(f.paciente_id) === pId && f.mes_atendimento === mes);
-      if (fichaExistente) {
-        return prevFichas.map(f => f.id === fichaExistente.id ? { ...f, acoes: [...f.acoes, { ...acao, id: Date.now() }] } : f);
-      } else {
-        return [...prevFichas, { id: Date.now(), paciente_id: pId, mes_atendimento: mes, acoes: [{ ...acao, id: Date.now() }] }];
-      }
-    });
-  };
+  const lancarAcaoIndividual = async (pacienteId, mes, acao) => {
+    try {
+      const pId = Number(pacienteId);
+      
+      // 1. Localiza ou cria a ficha mensal para o paciente no mês
+      let fichaId = null;
+      const fichaExistente = fichas.find(f => Number(f.paciente_id) === pId && f.mes_atendimento === mes);
 
-  const lancarAcaoMassa = (pacientesIds, mes, acao) => {
-    setFichas(prevFichas => {
-      let novasFichas = [...prevFichas];
-      pacientesIds.forEach(idRaw => {
-        const pId = Number(idRaw);
-        const idx = novasFichas.findIndex(f => Number(f.paciente_id) === pId && f.mes_atendimento === mes);
-        if (idx >= 0) {
-          novasFichas[idx] = {
-            ...novasFichas[idx],
-            acoes: [...novasFichas[idx].acoes, { ...acao, id: Date.now() + Math.random() }]
-          };
+      if (fichaExistente) {
+        fichaId = fichaExistente.id;
+      } else {
+        const { data: novaFichaData, error: errFicha } = await supabase
+          .from('fichas_mensais')
+          .insert([{ paciente_id: pId, mes_atendimento: mes }])
+          .select();
+
+        if (errFicha) {
+          alert('Erro ao criar ficha mensal no Supabase: ' + errFicha.message);
+          return;
+        }
+        fichaId = novaFichaData[0].id;
+      }
+
+      // 2. Insere a ação realizada vinculada à ficha
+      const { data: acaoSalva, error: errAcao } = await supabase
+        .from('acoes_realizadas')
+        .insert([{
+          ficha_id: fichaId,
+          codigo: acao.codigo,
+          quantidade: parseInt(acao.quantidade, 10) || 1,
+          data: acao.data,
+          cbo: acao.cbo,
+          cns: acao.cns,
+          local: acao.local || 'CAPS',
+          profissional_id: acao.profissional_id ? Number(acao.profissional_id) : null
+        }])
+        .select();
+
+      if (errAcao) {
+        alert('Erro ao gravar ação realizada no Supabase: ' + errAcao.message);
+        return;
+      }
+
+      const novaAcaoObj = {
+        id: acaoSalva[0].id,
+        codigo: acaoSalva[0].codigo,
+        quantidade: acaoSalva[0].quantidade,
+        data: acaoSalva[0].data,
+        cbo: acaoSalva[0].cbo,
+        cns: acaoSalva[0].cns,
+        local: acaoSalva[0].local,
+        profissional_id: acaoSalva[0].profissional_id
+      };
+
+      setFichas(prevFichas => {
+        const exists = prevFichas.find(f => Number(f.id) === Number(fichaId));
+        if (exists) {
+          return prevFichas.map(f => Number(f.id) === Number(fichaId)
+            ? { ...f, acoes: [...f.acoes, novaAcaoObj] }
+            : f
+          );
         } else {
-          novasFichas.push({
-            id: Date.now() + Math.random(),
+          return [...prevFichas, {
+            id: fichaId,
             paciente_id: pId,
             mes_atendimento: mes,
-            acoes: [{ ...acao, id: Date.now() + Math.random() }]
-          });
+            acoes: [novaAcaoObj]
+          }];
         }
       });
-      return novasFichas;
-    });
+    } catch (err) {
+      console.error('Erro ao lançar ação individual:', err);
+    }
   };
 
-  const deleteFicha = (fichaId) => {
-    setFichas(prev => prev.filter(f => Number(f.id) !== Number(fichaId)));
-  };
-
-  const deleteAcao = (fichaId, acaoId) => {
-    setFichas(prev => prev.map(f => {
-      if (Number(f.id) === Number(fichaId)) {
-        return {
-          ...f,
-          acoes: f.acoes.filter(a => Number(a.id) !== Number(acaoId))
-        };
+  const lancarAcaoMassa = async (pacientesIds, mes, acao) => {
+    try {
+      for (const idRaw of pacientesIds) {
+        await lancarAcaoIndividual(idRaw, mes, acao);
       }
-      return f;
-    }));
+    } catch (err) {
+      console.error('Erro no lançamento em massa:', err);
+    }
   };
 
-  const updateAcao = (fichaId, acaoId, novaAcaoData) => {
-    setFichas(prev => prev.map(f => {
-      if (Number(f.id) === Number(fichaId)) {
-        return {
-          ...f,
-          acoes: f.acoes.map(a => Number(a.id) === Number(acaoId) ? { ...novaAcaoData, id: Number(acaoId) } : a)
-        };
+  const deleteFicha = async (fichaId) => {
+    try {
+      const fId = Number(fichaId);
+      const { error } = await supabase.from('fichas_mensais').delete().eq('id', fId);
+      if (error) {
+        alert('Erro ao excluir ficha no Supabase: ' + error.message);
+        return;
       }
-      return f;
-    }));
+      setFichas(prev => prev.filter(f => Number(f.id) !== fId));
+    } catch (err) {
+      console.error('Erro ao excluir ficha:', err);
+    }
+  };
+
+  const deleteAcao = async (fichaId, acaoId) => {
+    try {
+      const aId = Number(acaoId);
+      const { error } = await supabase.from('acoes_realizadas').delete().eq('id', aId);
+      if (error) {
+        alert('Erro ao excluir ação no Supabase: ' + error.message);
+        return;
+      }
+      setFichas(prev => prev.map(f => {
+        if (Number(f.id) === Number(fichaId)) {
+          return {
+            ...f,
+            acoes: f.acoes.filter(a => Number(a.id) !== aId)
+          };
+        }
+        return f;
+      }));
+    } catch (err) {
+      console.error('Erro ao excluir ação:', err);
+    }
+  };
+
+  const updateAcao = async (fichaId, acaoId, novaAcaoData) => {
+    try {
+      const aId = Number(acaoId);
+      const payload = {
+        codigo: novaAcaoData.codigo,
+        quantidade: parseInt(novaAcaoData.quantidade, 10) || 1,
+        data: novaAcaoData.data,
+        cbo: novaAcaoData.cbo,
+        cns: novaAcaoData.cns,
+        local: novaAcaoData.local || 'CAPS',
+        profissional_id: novaAcaoData.profissional_id ? Number(novaAcaoData.profissional_id) : null
+      };
+
+      const { data, error } = await supabase
+        .from('acoes_realizadas')
+        .update(payload)
+        .eq('id', aId)
+        .select();
+
+      if (error) {
+        alert('Erro ao atualizar ação no Supabase: ' + error.message);
+        return;
+      }
+
+      if (data && data[0]) {
+        setFichas(prev => prev.map(f => {
+          if (Number(f.id) === Number(fichaId)) {
+            return {
+              ...f,
+              acoes: f.acoes.map(a => Number(a.id) === aId ? { ...a, ...data[0] } : a)
+            };
+          }
+          return f;
+        }));
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar ação:', err);
+    }
   };
 
   return (
@@ -199,6 +395,8 @@ export function AppProvider({ children }) {
       profissionais,
       procedimentos,
       fichas,
+      loading,
+      carregarDados,
       addPaciente,
       updatePaciente,
       deletePaciente,
