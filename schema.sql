@@ -99,6 +99,18 @@ CREATE TABLE IF NOT EXISTS keepalive_pings (
 );
 
 -- ============================================================
+-- CONCEDER PERMISSÕES (GRANT) ÀS ROLES DO SUPABASE (anon, authenticated, service_role)
+-- ============================================================
+GRANT ALL ON TABLE public.profissionais TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.pacientes TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.procedimentos TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.fichas_mensais TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.acoes_realizadas TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.keepalive_pings TO anon, authenticated, service_role;
+
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+
+-- ============================================================
 -- HABILITAR ROW LEVEL SECURITY (RLS) - Permissões de Acesso
 -- ============================================================
 ALTER TABLE profissionais ENABLE ROW LEVEL SECURITY;
