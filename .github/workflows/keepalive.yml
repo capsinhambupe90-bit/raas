@@ -2,17 +2,26 @@ name: Manter Supabase Ativo (Keepalive)
 
 on:
   schedule:
-    # Executa automaticamente todos os dias às 06:00 UTC (03:00 Horário de Brasília)
-    - cron: '0 6 * * *'
-  workflow_dispatch: # Permite rodar manualmente pelo painel se desejar
+    # Executa automaticamente a cada 6 horas todos os dias
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Permite rodar manualmente pelo painel de Actions
 
 jobs:
   keepalive:
     runs-on: ubuntu-latest
     steps:
-      - name: Fazer requisição real na API do Supabase
+      - name: Registrar Ping no Banco do Supabase (Escrita Real)
         run: |
-          curl -s -X GET "https://azfllylzkdntprdbfxkl.supabase.co/rest/v1/procedimentos?select=id&limit=1" \
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://azfllylzkdntprdbfxkl.supabase.co/rest/v1/keepalive_pings" \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZmxseWx6a2RudHByZGJmeGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MDU1ODcsImV4cCI6MjEwMTM4MTU4N30.VIn4ZLaRnX4PH8ncFeexvmmUDSSeON8fSbaYY7z0F7I" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZmxseWx6a2RudHByZGJmeGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MDU1ODcsImV4cCI6MjEwMTM4MTU4N30.VIn4ZLaRnX4PH8ncFeexvmmUDSSeON8fSbaYY7z0F7I"
-          echo "Requisição realizada com sucesso para impedir pausa do Supabase por inatividade!"
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6ZmxseWx6a2RudHByZGJmeGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MDU1ODcsImV4cCI6MjEwMTM4MTU4N30.VIn4ZLaRnX4PH8ncFeexvmmUDSSeON8fSbaYY7z0F7I" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d '{"origem": "github_actions"}')
+
+          echo "Resposta HTTP do Supabase: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "Ping registrado com sucesso! O banco de dados recebeu escrita ativa."
+          else
+            echo "Aviso: Código de resposta $STATUS retornado pelo Supabase."
+          fi
