@@ -1,11 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, ClipboardList, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, ClipboardList, Stethoscope, Copy } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Profissionais from './pages/Profissionais';
 import Pacientes from './pages/Pacientes';
 import Procedimentos from './pages/Procedimentos';
 import FichaRAAS from './pages/FichaRAAS';
 import LancamentoMassa from './pages/LancamentoMassa';
+import Duplicados from './pages/Duplicados';
 import { AppProvider } from './context/AppContext';
 
 function Sidebar() {
@@ -24,6 +25,9 @@ function Sidebar() {
         </Link>
         <Link to="/pacientes" className={`nav-link ${isActive('/pacientes')}`}>
           <Users size={20} /> Pacientes
+        </Link>
+        <Link to="/duplicados" className={`nav-link ${isActive('/duplicados')}`}>
+          <Copy size={20} /> Duplicados
         </Link>
         <Link to="/profissionais" className={`nav-link ${isActive('/profissionais')}`}>
           <Stethoscope size={20} /> Profissionais
@@ -52,6 +56,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/pacientes" element={<Pacientes />} />
+              <Route path="/duplicados" element={<Duplicados />} />
               <Route path="/profissionais" element={<Profissionais />} />
               <Route path="/procedimentos" element={<Procedimentos />} />
               <Route path="/fichas" element={<FichaRAAS />} />

@@ -1,8 +1,10 @@
 import React from 'react';
+import { sortAcoesByData } from '../utils/dates';
 import './FichaPrint.css';
 
 export default function FichaPrintView({ paciente, acoes, mesAtendimento }) {
   const ACTIONS_PER_PAGE = 25;
+  const acoesOrdenadas = sortAcoesByData(acoes);
   
   const formatDateToBR = (dateStr) => {
     if (!dateStr) return '';
@@ -15,7 +17,7 @@ export default function FichaPrintView({ paciente, acoes, mesAtendimento }) {
   };
 
   // Calcular totais por código de procedimento considerando TODAS as ações da ficha
-  const totaisPorCodigo = acoes
+  const totaisPorCodigo = acoesOrdenadas
     .filter(a => a.codigo)
     .reduce((acc, acao) => {
       const qtd = parseInt(acao.quantidade, 10) || 0;
@@ -25,8 +27,8 @@ export default function FichaPrintView({ paciente, acoes, mesAtendimento }) {
   const resumoProcedimentos = Object.entries(totaisPorCodigo);
 
   const pages = [];
-  for (let i = 0; i < acoes.length; i += ACTIONS_PER_PAGE) {
-    const pageActions = acoes.slice(i, i + ACTIONS_PER_PAGE);
+  for (let i = 0; i < acoesOrdenadas.length; i += ACTIONS_PER_PAGE) {
+    const pageActions = acoesOrdenadas.slice(i, i + ACTIONS_PER_PAGE);
     while (pageActions.length < ACTIONS_PER_PAGE) {
       pageActions.push({ id: `empty-${pageActions.length}-${i}` });
     }

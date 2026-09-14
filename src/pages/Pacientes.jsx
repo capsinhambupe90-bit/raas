@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Search, X, Trash2, Edit } from 'lucide-react';
+import { Plus, Search, X, Trash2, Edit, TriangleAlert } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { matchesSearch, normalizeText } from '../utils/text';
+import { onlyDigits, CAMPOS_COMPARACAO, valoresDiferem } from '../utils/duplicates';
+import { formatSUS, formatCPF, formatDateBR } from '../utils/masks';
 
 export default function Pacientes() {
   const { pacientes, addPaciente, updatePaciente, deletePaciente } = useApp();
@@ -8,6 +11,7 @@ export default function Pacientes() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [conflitoNome, setConflitoNome] = useState(null);
   const [formData, setFormData] = useState({
     nome: '',
     cartao_sus: '',
@@ -24,7 +28,13 @@ export default function Pacientes() {
 
   const handleOpenModal = (paciente = null) => {
     if (paciente) {
-      setFormData(paciente);
+      setFormData({
+        ...paciente,
+        cartao_sus: formatSUS(paciente.cartao_sus),
+        cpf: formatCPF(paciente.cpf),
+        data_nascimento: formatDateBR(paciente.data_nascimento),
+        data_admissao: formatDateBR(paciente.data_admissao)
+      });
       setEditingId(paciente.id);
     } else {
       setFormData({
@@ -49,14 +59,67 @@ export default function Pacientes() {
     setIsModalOpen(false);
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
+  const verificarDuplicidade = () => {
+    const nome = normalizeText(formData.nome).replace(/\s+/g, ' ').trim();
+    const sus = onlyDigits(formData.cartao_sus);
+    const cpf = onlyDigits(formData.cpf);
+    const bloqueios = [];
+    const nomesIguais = [];
+
+    pacientes.forEach(p => {
+      if (editingId && Number(p.id) === Number(editingId)) return;
+
+      const pNome = normalizeText(p.nome).replace(/\s+/g, ' ').trim();
+      const pSus = onlyDigits(p.cartao_sus);
+      const pCpf = onlyDigits(p.cpf);
+
+      if (sus && pSus && sus === pSus) {
+        bloqueios.push(`Cartão SUS já cadastrado para "${p.nome}".`);
+      }
+      if (cpf && pCpf && cpf === pCpf) {
+        bloqueios.push(`CPF já cadastrado para "${p.nome}".`);
+      }
+      if (nome && pNome && nome === pNome) {
+        nomesIguais.push(p);
+      }
+    });
+
+    return { bloqueios: [...new Set(bloqueios)], nomesIguais };
+  };
+
+  const salvarPaciente = () => {
     if (editingId) {
       updatePaciente(editingId, formData);
     } else {
       addPaciente(formData);
     }
+    setConflitoNome(null);
     handleCloseModal();
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+
+    const { bloqueios, nomesIguais } = verificarDuplicidade();
+    if (bloqueios.length > 0) {
+      alert('Não foi possível salvar: já existe cadastro com estas informações.\n\n' + bloqueios.join('\n'));
+      return;
+    }
+
+    if (nomesIguais.length > 0) {
+      setConflitoNome(nomesIguais);
+      return;
+    }
+
+    salvarPaciente();
+  };
+
+  const exibirValor = (campoKey, valor) => {
+    if (valor === null || valor === undefined || valor === '') return '';
+    if (campoKey === 'cartao_sus') return formatSUS(valor);
+    if (campoKey === 'cpf') return formatCPF(valor);
+    if (campoKey.startsWith('data')) return formatDateBR(valor);
+    return valor;
   };
 
   const handleDelete = (id, nome) => {
@@ -66,8 +129,8 @@ export default function Pacientes() {
   };
 
   const pacientesFiltrados = pacientes.filter(p => 
-    p.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.cartao_sus.includes(searchTerm)
+    matchesSearch(p.nome, searchTerm) || 
+    matchesSearch(p.cartao_sus, searchTerm)
   );
 
   return (
@@ -169,17 +232,17 @@ export default function Pacientes() {
                 
                 <div className="form-group">
                   <label className="form-label">Cartão do SUS</label>
-                  <input type="text" className="form-control" value={formData.cartao_sus} onChange={e => setFormData({...formData, cartao_sus: e.target.value})} required />
+                  <input type="text" className="form-control" placeholder="0000.0000.0000.000" maxLength="18" value={formData.cartao_sus} onChange={e => setFormData({...formData, cartao_sus: formatSUS(e.target.value)})} required />
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">CPF</label>
-                  <input type="text" className="form-control" value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value})} />
+                  <input type="text" className="form-control" placeholder="000.000.000-00" maxLength="14" value={formData.cpf} onChange={e => setFormData({...formData, cpf: formatCPF(e.target.value)})} />
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Data de Nascimento</label>
-                  <input type="text" className="form-control" placeholder="DD/MM/AAAA" value={formData.data_nascimento} onChange={e => setFormData({...formData, data_nascimento: e.target.value})} required />
+                  <input type="text" className="form-control" placeholder="DD/MM/AAAA" maxLength="10" value={formData.data_nascimento} onChange={e => setFormData({...formData, data_nascimento: formatDateBR(e.target.value)})} required />
                 </div>
 
                 <div className="form-group">
@@ -212,7 +275,7 @@ export default function Pacientes() {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
                   <label className="form-label">Data de Admissão</label>
-                  <input type="text" className="form-control" placeholder="DD/MM/AAAA" value={formData.data_admissao} onChange={e => setFormData({...formData, data_admissao: e.target.value})} />
+                  <input type="text" className="form-control" placeholder="DD/MM/AAAA" maxLength="10" value={formData.data_admissao} onChange={e => setFormData({...formData, data_admissao: formatDateBR(e.target.value)})} />
                 </div>
 
                 <div className="form-group">
@@ -231,6 +294,60 @@ export default function Pacientes() {
                 <button type="submit" className="btn btn-primary">Salvar Paciente</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {conflitoNome && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200,
+          display: 'flex', justifyContent: 'center', alignItems: 'center'
+        }}>
+          <div className="card" style={{ width: '820px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <TriangleAlert size={22} color="#d97706" />
+              <h2 style={{ fontWeight: 600, fontSize: '1.25rem' }}>Possível paciente já cadastrado</h2>
+            </div>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              Já existe cadastro com o mesmo nome. Compare os dados abaixo: se for a mesma pessoa, cancele e use a tela
+              <strong> Duplicados</strong> para unir os cadastros. Se for outra pessoa, clique em "Salvar mesmo assim".
+            </p>
+
+            {conflitoNome.map(existente => (
+              <div key={existente.id} style={{ marginBottom: '1.25rem' }}>
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '180px' }}>Campo</th>
+                        <th>Novo cadastro</th>
+                        <th>Já cadastrado (ID {existente.id})</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {CAMPOS_COMPARACAO.map(campo => {
+                        const novo = exibirValor(campo.key, formData[campo.key]);
+                        const atual = exibirValor(campo.key, existente[campo.key]);
+                        const difere = valoresDiferem(formData[campo.key], existente[campo.key]);
+                        return (
+                          <tr key={campo.key}>
+                            <td style={{ fontWeight: 600, color: '#334155' }}>{campo.label}</td>
+                            <td style={{ backgroundColor: difere ? '#fef9c3' : '#f0fdf4' }}>{novo || '—'}</td>
+                            <td style={{ backgroundColor: difere ? '#fef9c3' : '#f0fdf4' }}>{atual || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex justify-between" style={{ marginTop: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setConflitoNome(null)}>Cancelar</button>
+              <button type="button" className="btn btn-primary" onClick={salvarPaciente}>Salvar mesmo assim</button>
+            </div>
           </div>
         </div>
       )}

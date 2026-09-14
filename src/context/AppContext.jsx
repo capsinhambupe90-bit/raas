@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { sortAcoesByData } from '../utils/dates';
 
 const AppContext = createContext();
 
@@ -54,7 +55,7 @@ export function AppProvider({ children }) {
         id: f.id,
         paciente_id: Number(f.paciente_id),
         mes_atendimento: f.mes_atendimento,
-        acoes: acoesPorFicha[Number(f.id)] || []
+        acoes: sortAcoesByData(acoesPorFicha[Number(f.id)] || [])
       }));
 
       setFichas(listaFichas);
@@ -286,7 +287,7 @@ export function AppProvider({ children }) {
         const exists = prevFichas.find(f => Number(f.id) === Number(fichaId));
         if (exists) {
           return prevFichas.map(f => Number(f.id) === Number(fichaId)
-            ? { ...f, acoes: [...f.acoes, novaAcaoObj] }
+            ? { ...f, acoes: sortAcoesByData([...f.acoes, novaAcaoObj]) }
             : f
           );
         } else {
@@ -378,7 +379,7 @@ export function AppProvider({ children }) {
           if (Number(f.id) === Number(fichaId)) {
             return {
               ...f,
-              acoes: f.acoes.map(a => Number(a.id) === aId ? { ...a, ...data[0] } : a)
+              acoes: sortAcoesByData(f.acoes.map(a => Number(a.id) === aId ? { ...a, ...data[0] } : a))
             };
           }
           return f;
@@ -386,6 +387,132 @@ export function AppProvider({ children }) {
       }
     } catch (err) {
       console.error('Erro ao atualizar ação:', err);
+    }
+  };
+
+  const CAMPOS_PREENCHIVEIS = [
+    'cpf', 'sexo', 'nome_mae', 'endereco', 'telefone',
+    'data_admissao', 'cid_principal', 'cid_associado'
+  ];
+
+  const unirPacientes = async (masterId, duplicateIds) => {
+    const master = Number(masterId);
+    const duplicados = (duplicateIds || [])
+      .map(Number)
+      .filter(id => id !== master);
+
+    if (!master || duplicados.length === 0) return false;
+
+    try {
+      const { data: masterData, error: errMaster } = await supabase
+        .from('pacientes').select('*').eq('id', master).maybeSingle();
+      if (errMaster || !masterData) {
+        alert('Erro ao carregar o paciente principal: ' + (errMaster?.message || 'não encontrado'));
+        return false;
+      }
+
+      for (const dupId of duplicados) {
+        // 1. Move a produção do duplicado para o principal, mês a mês
+        const { data: fichasDup, error: errFichas } = await supabase
+          .from('fichas_mensais')
+          .select('id, mes_atendimento')
+          .eq('paciente_id', dupId);
+        if (errFichas) {
+          alert('Erro ao ler fichas do paciente duplicado: ' + errFichas.message);
+          return false;
+        }
+
+        for (const fichaDup of (fichasDup || [])) {
+          const { data: fichaMaster, error: errFichaMaster } = await supabase
+            .from('fichas_mensais')
+            .select('id')
+            .eq('paciente_id', master)
+            .eq('mes_atendimento', fichaDup.mes_atendimento)
+            .maybeSingle();
+          if (errFichaMaster) {
+            alert('Erro ao verificar ficha do paciente principal: ' + errFichaMaster.message);
+            return false;
+          }
+
+          if (fichaMaster) {
+            // Já existe ficha do principal no mês: move as ações e remove a ficha vazia
+            const { error: errMover } = await supabase
+              .from('acoes_realizadas')
+              .update({ ficha_id: fichaMaster.id })
+              .eq('ficha_id', fichaDup.id);
+            if (errMover) {
+              alert('Erro ao mover ações para a ficha do principal: ' + errMover.message);
+              return false;
+            }
+
+            const { error: errRemover } = await supabase
+              .from('fichas_mensais')
+              .delete()
+              .eq('id', fichaDup.id);
+            if (errRemover) {
+              alert('Erro ao remover ficha duplicada vazia: ' + errRemover.message);
+              return false;
+            }
+          } else {
+            // Não existe ficha no mês: apenas reponta a ficha para o principal
+            const { error: errRepontar } = await supabase
+              .from('fichas_mensais')
+              .update({ paciente_id: master })
+              .eq('id', fichaDup.id);
+            if (errRepontar) {
+              alert('Erro ao vincular ficha ao paciente principal: ' + errRepontar.message);
+              return false;
+            }
+          }
+        }
+
+        // 2. Completa campos vazios do principal com os dados do duplicado
+        const { data: dupData, error: errDup } = await supabase
+          .from('pacientes').select('*').eq('id', dupId).maybeSingle();
+        if (errDup) {
+          alert('Erro ao carregar paciente duplicado: ' + errDup.message);
+          return false;
+        }
+
+        if (dupData) {
+          const preenchimento = {};
+          for (const campo of CAMPOS_PREENCHIVEIS) {
+            const atual = masterData[campo];
+            const candidato = dupData[campo];
+            if ((atual === null || atual === undefined || String(atual).trim() === '') &&
+                candidato !== null && candidato !== undefined && String(candidato).trim() !== '') {
+              preenchimento[campo] = candidato;
+            }
+          }
+
+          if (Object.keys(preenchimento).length > 0) {
+            const { error: errAtualizar } = await supabase
+              .from('pacientes')
+              .update(preenchimento)
+              .eq('id', master);
+            if (errAtualizar) {
+              alert('Erro ao atualizar dados do paciente principal: ' + errAtualizar.message);
+              return false;
+            }
+            Object.assign(masterData, preenchimento);
+          }
+        }
+
+        // 3. Remove o cadastro duplicado (a produção já foi movida)
+        const { error: errExcluir } = await supabase
+          .from('pacientes').delete().eq('id', dupId);
+        if (errExcluir) {
+          alert('Erro ao excluir paciente duplicado: ' + errExcluir.message);
+          return false;
+        }
+      }
+
+      await carregarDados();
+      return true;
+    } catch (err) {
+      console.error('Erro ao unir pacientes:', err);
+      alert('Erro inesperado ao unir pacientes: ' + err.message);
+      return false;
     }
   };
 
@@ -410,7 +537,8 @@ export function AppProvider({ children }) {
       lancarAcaoMassa,
       deleteFicha,
       deleteAcao,
-      updateAcao
+      updateAcao,
+      unirPacientes
     }}>
       {children}
     </AppContext.Provider>

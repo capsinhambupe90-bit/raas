@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, Printer, List, FilePlus, Trash2, Edit, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { matchesSearch } from '../utils/text';
 import FichaPrintView from '../components/FichaPrintView';
 
 export default function FichaRAAS() {
@@ -50,8 +51,8 @@ export default function FichaRAAS() {
   const handleBuscaPaciente = (e) => {
     e.preventDefault();
     const p = pacientes.find(item => 
-      item.nome.toLowerCase().includes(buscaPacienteInput.toLowerCase()) || 
-      item.cartao_sus.includes(buscaPacienteInput)
+      matchesSearch(item.nome, buscaPacienteInput) || 
+      matchesSearch(item.cartao_sus, buscaPacienteInput)
     );
     if (p) {
       setPacienteSelecionado(p);

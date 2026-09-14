@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { matchesSearch } from '../utils/text';
 
 export default function Profissionais() {
   const { profissionais, addProfissional, updateProfissional, deleteProfissional } = useApp();
@@ -38,9 +39,9 @@ export default function Profissionais() {
   };
 
   const profissionaisFiltrados = profissionais.filter(p => 
-    p.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.cns.includes(searchTerm) ||
-    p.cbo.includes(searchTerm)
+    matchesSearch(p.nome, searchTerm) || 
+    matchesSearch(p.cns, searchTerm) ||
+    matchesSearch(p.cbo, searchTerm)
   );
 
   return (

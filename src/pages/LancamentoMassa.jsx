@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, CheckSquare } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { matchesSearch } from '../utils/text';
 
 export default function LancamentoMassa() {
   const { pacientes, procedimentos, profissionais, lancarAcaoMassa } = useApp();
@@ -17,8 +18,8 @@ export default function LancamentoMassa() {
   });
 
   const pacientesFiltrados = pacientes.filter(p => 
-    p.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.cartao_sus.includes(searchTerm)
+    matchesSearch(p.nome, searchTerm) || 
+    matchesSearch(p.cartao_sus, searchTerm)
   );
 
   const isAllSelected = pacientesFiltrados.length > 0 && pacientesFiltrados.every(p => selectedIds.includes(p.id));
@@ -77,7 +78,6 @@ export default function LancamentoMassa() {
 
     lancarAcaoMassa(selectedIds, massaConfig.mes, novaAcao);
     alert(`Sucesso! ${selectedIds.length} ação(ões) lançadas nas fichas de ${massaConfig.mes}!`);
-    setSelectedIds([]);
   };
 
   return (

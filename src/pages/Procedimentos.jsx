@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { matchesSearch } from '../utils/text';
 
 export default function Procedimentos() {
   const { procedimentos, addProcedimento, updateProcedimento, deleteProcedimento } = useApp();
@@ -38,8 +39,8 @@ export default function Procedimentos() {
   };
 
   const procedimentosFiltrados = procedimentos.filter(p => 
-    p.codigo.includes(searchTerm) || 
-    p.observacao.toLowerCase().includes(searchTerm.toLowerCase())
+    matchesSearch(p.codigo, searchTerm) || 
+    matchesSearch(p.observacao, searchTerm)
   );
 
   return (
