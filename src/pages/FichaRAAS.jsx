@@ -41,6 +41,36 @@ export default function FichaRAAS() {
   // Fichas filtradas pelo mês selecionado
   const fichasDoMes = fichas.filter(f => f.mes_atendimento === mesSelecionado);
 
+  // Busca e ordenação da lista de fichas
+  const [buscaLista, setBuscaLista] = useState('');
+  const [ordenacaoLista, setOrdenacaoLista] = useState('alfabetica-asc');
+
+  const compararNome = (a, b) =>
+    a.localeCompare(b, 'pt-BR', { sensitivity: 'base' });
+
+  const fichasLista = fichasDoMes
+    .map(ficha => ({
+      ficha,
+      paciente: pacientes.find(p => Number(p.id) === Number(ficha.paciente_id))
+    }))
+    .filter(item => item.paciente && (
+      matchesSearch(item.paciente.nome, buscaLista) ||
+      matchesSearch(item.paciente.cartao_sus, buscaLista)
+    ))
+    .sort((a, b) => {
+      switch (ordenacaoLista) {
+        case 'alfabetica-desc':
+          return compararNome(b.paciente.nome, a.paciente.nome);
+        case 'acoes-desc':
+          return (b.ficha.acoes.length - a.ficha.acoes.length) || compararNome(a.paciente.nome, b.paciente.nome);
+        case 'acoes-asc':
+          return (a.ficha.acoes.length - b.ficha.acoes.length) || compararNome(a.paciente.nome, b.paciente.nome);
+        case 'alfabetica-asc':
+        default:
+          return compararNome(a.paciente.nome, b.paciente.nome);
+      }
+    });
+
   const formatMesExibicao = (mesStr) => {
     if (!mesStr) return '';
     const [ano, mes] = mesStr.split('-');
@@ -164,13 +194,13 @@ export default function FichaRAAS() {
   };
 
   // Lógica de Seleção em Massa para Impressão
-  const isAllSelected = fichasDoMes.length > 0 && fichasDoMes.every(f => selectedFichaIds.includes(f.id));
+  const isAllSelected = fichasLista.length > 0 && fichasLista.every(item => selectedFichaIds.includes(item.ficha.id));
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
       setSelectedFichaIds([]);
     } else {
-      setSelectedFichaIds(fichasDoMes.map(f => f.id));
+      setSelectedFichaIds(fichasLista.map(item => item.ficha.id));
     }
   };
 
@@ -266,19 +296,46 @@ export default function FichaRAAS() {
       {/* TAB 1: LISTA DE FICHAS DO MÊS */}
       {activeTab === 'lista' && (
         <div className="card">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-4" style={{ flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h3 style={{ fontWeight: 600 }}>Fichas Preenchidas em {formatMesExibicao(mesSelecionado)}</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                 Total de {fichasDoMes.length} paciente(s) com produção cadastrada neste mês.
+                {buscaLista && ` Exibindo ${fichasLista.length} resultado(s).`}
               </p>
             </div>
 
-            {selectedFichaIds.length > 0 && (
-              <button className="btn btn-secondary" onClick={() => setIsPrintMode(true)}>
-                <Printer size={18} /> Imprimir {selectedFichaIds.length} Ficha(s) Selecionada(s)
-              </button>
-            )}
+            <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+              <div className="form-control flex items-center" style={{ width: '260px', display: 'flex', gap: '0.5rem' }}>
+                <Search size={16} color="var(--text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nome ou SUS..."
+                  value={buscaLista}
+                  onChange={e => setBuscaLista(e.target.value)}
+                  style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '0.875rem' }}
+                />
+              </div>
+
+              <select
+                className="form-control"
+                value={ordenacaoLista}
+                onChange={e => setOrdenacaoLista(e.target.value)}
+                style={{ width: 'auto', fontWeight: 600 }}
+                title="Ordenar lista"
+              >
+                <option value="alfabetica-asc">Nome (A-Z)</option>
+                <option value="alfabetica-desc">Nome (Z-A)</option>
+                <option value="acoes-desc">Mais ações no mês</option>
+                <option value="acoes-asc">Menos ações no mês</option>
+              </select>
+
+              {selectedFichaIds.length > 0 && (
+                <button className="btn btn-secondary" onClick={() => setIsPrintMode(true)}>
+                  <Printer size={18} /> Imprimir {selectedFichaIds.length} Ficha(s)
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="table-wrapper">
@@ -301,10 +358,8 @@ export default function FichaRAAS() {
                 </tr>
               </thead>
               <tbody>
-                {fichasDoMes.map((ficha) => {
-                  const paciente = pacientes.find(p => Number(p.id) === Number(ficha.paciente_id));
+                {fichasLista.map(({ ficha, paciente }) => {
                   const isChecked = selectedFichaIds.includes(ficha.id);
-                  if (!paciente) return null;
 
                   return (
                     <tr key={ficha.id} style={{ backgroundColor: isChecked ? '#f0fdf4' : undefined }}>
@@ -350,11 +405,17 @@ export default function FichaRAAS() {
                   );
                 })}
 
-                {fichasDoMes.length === 0 && (
+                {fichasLista.length === 0 && (
                   <tr>
                     <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-                      Nenhuma ficha cadastrada para o mês de {formatMesExibicao(mesSelecionado)}. 
-                      <br /> Use a aba <strong>Lançamento em Massa</strong> ou clique em <strong>Lançar / Editar Ficha Individual</strong> para começar.
+                      {buscaLista ? (
+                        <>Nenhum paciente encontrado para a busca "{buscaLista}".</>
+                      ) : (
+                        <>
+                          Nenhuma ficha cadastrada para o mês de {formatMesExibicao(mesSelecionado)}.
+                          <br /> Use a aba <strong>Lançamento em Massa</strong> ou clique em <strong>Lançar / Editar Ficha Individual</strong> para começar.
+                        </>
+                      )}
                     </td>
                   </tr>
                 )}
